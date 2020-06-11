@@ -16,5 +16,9 @@ void Usart1_Init(u32 bound);
 void USART1_Send_Data(u8 *buf,u16 len);
 void USART1_IRQHandler(void);
 
+void Usart2_Init(u32 bound);
+void USART2_Send_Data(u8 *buf,u16 len);
+void USART2_IRQHandler(void);
+
 #endif
 

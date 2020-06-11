@@ -8,7 +8,6 @@ u8 USART2_REV_BUF[256];
 u8 USART2_REV_CNT = 0;
 u8 USART2_REV_FLAG = 0; 
 
-
 //usart1初始化之后，便可以通过串口读写了；
 void Usart1_Init(u32 bound)
 {
@@ -50,6 +49,37 @@ void Usart1_Init(u32 bound)
     USART_Cmd(USART1, ENABLE);                    //CR1中的UE
 }
 
+void USART1_Send_Data(u8 *buf,u16 len)
+{
+    u16 t;
+    for(t=0;t<len;t++)        
+    {
+        USART_SendData(USART1,buf[t]);
+		while(USART_GetFlagStatus(USART1,USART_FLAG_TC)==RESET); 
+		//发送字节完成后，TC硬件置1；
+    }	//先读SR，后写DR清除TC位；	
+}
+
+void USART1_IRQHandler(void)                    
+{
+    if(USART_GetITStatus(USART1, USART_IT_RXNE) == SET)
+     {
+     	USART1_REV_BUF[USART1_REV_CNT] =USART_ReceiveData(USART1);		//读DR，硬件清0 RXNE位；
+        USART1_REV_CNT++; 
+        if(USART1_REV_BUF[USART1_REV_CNT-2]==0x0d&&USART1_REV_BUF[USART1_REV_CNT-1]==0x0a)
+			USART1_REV_FLAG = 1;			          
+     }
+	//RXNE为1，读数据的同时又来了数据，那么新的数据丢失；产生溢出错误，读完数据后RXNE为0，但ORE标志还在；
+	//RXNE为1，又来了数据，产生接收溢出错误，置位ORE；
+	//详见<中文参考手册>25.3.3 字符接收小节
+    if(USART_GetFlagStatus(USART1,USART_FLAG_ORE) == SET)
+    {
+        USART_ReceiveData(USART1);
+    //    USART_ClearFlag(USART1,USART_FLAG_ORE);//先读SR,后读DR，可以复位ORE位；应该不用软件清除了；
+    }
+    // USART_ClearFlag(USART1,USART_IT_RXNE); //读DR可以清除RXNE，应该不用软件清除了；
+}
+
 void Usart2_Init(u32 bound)
 {
     GPIO_InitTypeDef GPIO_InitStructure;
@@ -87,38 +117,6 @@ void Usart2_Init(u32 bound)
 
 }
 
-
-void USART1_Send_Data(u8 *buf,u16 len)
-{
-    u16 t;
-    for(t=0;t<len;t++)        
-    {
-        USART_SendData(USART1,buf[t]);
-		while(USART_GetFlagStatus(USART1,USART_FLAG_TC)==RESET); 
-		//发送字节完成后，TC硬件置1；
-    }	//先读SR，后写DR清除TC位；	
-}
-
-void USART1_IRQHandler(void)                    
-{
-    if(USART_GetITStatus(USART1, USART_IT_RXNE) == SET)
-     {
-     	USART1_REV_BUF[USART1_REV_CNT] =USART_ReceiveData(USART1);		//读DR，硬件清0 RXNE位；
-        USART1_REV_CNT++; 
-        if(USART1_REV_BUF[USART1_REV_CNT-2]==0x0d&&USART1_REV_BUF[USART1_REV_CNT-1]==0x0a)
-			USART1_REV_FLAG = 1;			          
-     }
-	//RXNE为1，读数据的同时又来了数据，那么新的数据丢失；产生溢出错误，读完数据后RXNE为0，但ORE标志还在；
-	//RXNE为1，又来了数据，产生接收溢出错误，置位ORE；
-	//详见<中文参考手册>25.3.3 字符接收小节
-    if(USART_GetFlagStatus(USART1,USART_FLAG_ORE) == SET)
-    {
-        USART_ReceiveData(USART1);
-    //    USART_ClearFlag(USART1,USART_FLAG_ORE);//先读SR,后读DR，可以复位ORE位；应该不用软件清除了；
-    }
-    // USART_ClearFlag(USART1,USART_IT_RXNE); //读DR可以清除RXNE，应该不用软件清除了；
-}
- 
 void USART2_Send_Data(u8 *buf,u16 len)
 {
     u16 t;
